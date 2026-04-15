@@ -189,32 +189,41 @@ io.on('connection', (socket) => {
     });
 
     socket.on('liar', () => {
-        if (!game.active || game.bid.count === 0 || players[game.turn].id !== socket.id) return;
+        if (!game.active || game.bid.count === 0 || game.showingResults || players[game.turn].id !== socket.id) return;
         
         const face = game.bid.face;
         const total = players.reduce((s, p) => s + p.dice.filter(d => d === face || d === 1).length, 0);
         const isLiar = total < game.bid.count;
         const loserIdx = isLiar ? game.bid.pIdx : game.turn;
         
-        game.showingResults = true; // Kích hoạt trạng thái xem kết quả
+        game.showingResults = true; // Bật chế độ xem kết quả
         game.logs.push(`Hạ bài: Có ${total} con [${face===1?'Ace':face}]`);
         game.logs.push(`${players[loserIdx].name} thua!`);
         
         players[loserIdx].dice.pop();
         if (players[loserIdx].dice.length === 0) players[loserIdx].alive = false;
+        
+        // Thiết lập lượt cho ván sau là người vừa thua
         game.turn = loserIdx;
-        if (!players[game.turn].alive) nextTurn();
+        if (!players[game.turn].alive) {
+            do { game.turn = (game.turn + 1) % players.length; } while (!players[game.turn].alive);
+        }
 
-        sync(true); // Gửi toàn bộ xúc xắc về để hiển thị
+        // QUAN TRỌNG: Không gọi newRound() ở đây! 
+        // Để nguyên xúc xắc cũ để mọi người đối chiếu.
+        sync(true); 
     });
 
     socket.on('nextRound', () => {
+        // Chỉ khi mọi người xem xong và bấm "Sẵn sàng", mới tung xúc xắc mới
         if (players.filter(p => p.alive).length <= 1) {
             game.active = false;
+            game.showingResults = false;
             game.logs.push("🏆 TRÒ CHƠI KẾT THÚC!");
         } else {
             game.showingResults = false;
-            newRound();
+            newRound(); // Tung xúc xắc mới ở ĐÂY
+            game.logs.push("--- VÒNG MỚI BẮT ĐẦU ---");
         }
         sync();
     });
