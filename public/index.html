@@ -1,4 +1,4 @@
-<!-- 
+
 
 
 <!DOCTYPE html>
@@ -63,7 +63,7 @@
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
@@ -134,16 +134,9 @@
 
             document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
         });
-    </script>
-</body>
-</html> -->
+    </script> -->
 
-
-<!DOCTYPE html>
-<html>
-<head>
-
-<script src="/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
@@ -249,7 +242,7 @@
             document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
         });
     </script>
-
-
 </body>
 </html>
+
+
