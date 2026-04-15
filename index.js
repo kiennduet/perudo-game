@@ -171,64 +171,47 @@ const path = require('path');
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-let users = {}; // { username: password }
+let users = {}; 
 let players = []; 
 let game = { active: false, bid: { count: 0, face: 0, pIdx: -1 }, turn: 0, logs: [], showingResults: false };
 
 io.on('connection', (socket) => {
-    // Xử lý Đăng nhập / Đăng ký
+    console.log('Kết nối mới:', socket.id);
+
     socket.on('login', ({ username, password }) => {
         if (!username || !password) return socket.emit('err', 'Nhập đủ tên và mật khẩu!');
-        username = username.trim();
+        const name = username.trim();
 
-        if (!users[username]) {
-            users[username] = password; // Đăng ký mới
-        } else if (users[username] !== password) {
-            return socket.emit('err', 'Sai mật khẩu cho tên này!');
+        if (!users[name]) {
+            users[name] = password;
+        } else if (users[name] !== password) {
+            return socket.emit('err', 'Sai mật khẩu!');
         }
 
-        let p = players.find(x => x.name === username);
+        let p = players.find(x => x.name === name);
         if (p) {
-            // Trường hợp người chơi cũ quay lại (F5 hoặc rớt mạng)
             p.id = socket.id;
             p.online = true;
         } else {
-            // Người chơi mới vào phòng
-            if (game.active) return socket.emit('err', 'Game đang chạy, vui lòng đợi!');
-            if (players.length >= 10) return socket.emit('err', 'Phòng đã đầy!');
-            players.push({ id: socket.id, name: username, dice: [], alive: true, online: true });
+            if (game.active) return socket.emit('err', 'Game đang chạy, đợi ván sau!');
+            players.push({ id: socket.id, name: name, dice: [], alive: true, online: true });
         }
 
-        socket.emit('loginSuccess', username);
+        socket.emit('loginSuccess', name);
         sync();
     });
 
-    // Thay đổi thứ tự (Chỉ khi chưa bắt đầu)
-    socket.on('movePlayer', ({ index, direction }) => {
-        if (game.active) return;
-        const newIndex = index + direction;
-        if (newIndex >= 0 && newIndex < players.length) {
-            [players[index], players[newIndex]] = [players[newIndex], players[index]];
-            sync();
-        }
-    });
-
-    // Bắt đầu game (Hồi sinh tất cả người đang online)
     socket.on('start', () => {
-        const activeCount = players.filter(p => p.online).length;
-        if (activeCount < 2) return socket.emit('err', 'Cần ít nhất 2 người online!');
-        
+        if (players.filter(p => p.online).length < 2) return socket.emit('err', 'Cần ít nhất 2 người online!');
         game.active = true;
         game.showingResults = false;
         game.turn = 0;
         game.bid = { count: 0, face: 0, pIdx: -1 };
-        game.logs = ["--- TRÒ CHƠI MỚI BẮT ĐẦU ---"];
-        
+        game.logs = ["--- TRÒ CHƠI BẮT ĐẦU ---"];
         players.forEach(p => {
-            p.alive = p.online; // Chỉ người đang online mới được chơi
+            p.alive = p.online;
             p.dice = p.alive ? [0,0,0,0,0] : [];
         });
-
         newRound();
         sync();
     });
@@ -236,7 +219,6 @@ io.on('connection', (socket) => {
     socket.on('bid', (data) => {
         const p = players[game.turn];
         if (!game.active || game.showingResults || !p || p.id !== socket.id) return;
-        
         if (isValidBid(data)) {
             game.bid = { count: data.count, face: data.face, pIdx: game.turn };
             game.logs.push(`${p.name}: ${data.count} con [${data.face === 1 ? 'Ace' : data.face}]`);
@@ -255,20 +237,13 @@ io.on('connection', (socket) => {
         const loserIdx = isLiar ? game.bid.pIdx : game.turn;
         
         game.showingResults = true;
-        game.logs.push(`Hạ bài: Có ${total} con [${face===1?'Ace':face}] (gồm cả Joker 1)`);
-        
+        game.logs.push(`Hạ bài: Có ${total} con [${face===1?'Ace':face}]`);
         players[loserIdx].dice.pop();
-        if (players[loserIdx].dice.length === 0) {
-            players[loserIdx].alive = false;
-            game.logs.push(`${players[loserIdx].name} ĐÃ BỊ LOẠI!`);
-        } else {
-            game.logs.push(`${players[loserIdx].name} thua! Còn ${players[loserIdx].dice.length} 🎲`);
-        }
+        if (players[loserIdx].dice.length === 0) players[loserIdx].alive = false;
 
-        const survivors = players.filter(p => p.alive);
-        if (survivors.length <= 1) {
+        if (players.filter(p => p.alive).length <= 1) {
             game.active = false;
-            game.logs.push(`🏆 CHIẾN THẮNG CUỐI CÙNG: ${survivors[0]?.name || 'Không xác định'}`);
+            game.logs.push(`🏆 CHIẾN THẮNG: ${players.find(p => p.alive)?.name || '...'}`);
         } else {
             game.turn = loserIdx;
             if (!players[game.turn].alive) nextTurn();
@@ -280,8 +255,16 @@ io.on('connection', (socket) => {
         if (!game.active) return;
         game.showingResults = false;
         newRound();
-        game.logs.push("--- VÒNG MỚI ---");
         sync();
+    });
+
+    socket.on('movePlayer', ({ index, direction }) => {
+        if (game.active) return;
+        const newIndex = index + direction;
+        if (newIndex >= 0 && newIndex < players.length) {
+            [players[index], players[newIndex]] = [players[newIndex], players[index]];
+            sync();
+        }
     });
 
     socket.on('resetRoom', () => {
@@ -298,8 +281,7 @@ io.on('connection', (socket) => {
     function isValidBid(nB) {
         const oB = game.bid;
         if (nB.face < 1 || nB.face > 6 || nB.count <= 0) return false;
-        if (oB.count === 0) return nB.face !== 1; // Phát súng đầu không được thầu Ace (Luật chuẩn)
-        
+        if (oB.count === 0) return nB.face !== 1;
         if (oB.face !== 1 && nB.face !== 1) return (nB.count > oB.count) || (nB.count === oB.count && nB.face > oB.face);
         if (oB.face !== 1 && nB.face === 1) return nB.count >= Math.ceil(oB.count / 2);
         if (oB.face === 1 && nB.face !== 1) return nB.count >= (oB.count * 2 + 1);
@@ -328,4 +310,5 @@ io.on('connection', (socket) => {
     }
 });
 
-http.listen(process.env.PORT || 3000, '0.0.0.0');
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, '0.0.0.0', () => console.log('Server is online on port', PORT));
