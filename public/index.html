@@ -343,7 +343,7 @@
             // UPDATE LOGS WITH WINNER HIGHLIGHT
             document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => {
                 let cls = "log-entry";
-                if (l.includes("WINS THE CHALLENGE")) cls += " log-win";
+                if (l.includes("Wins the challenge")) cls += " log-win";
                 if (l.includes("lost 1 die") || l.includes("ELIMINATED")) cls += " log-loss";
                 return `<div class="${cls}">${l}</div>`;
             }).join('');
