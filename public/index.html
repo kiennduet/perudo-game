@@ -1,135 +1,4 @@
-<!-- <!DOCTYPE html>
-<html>
-<head>
-    <title>Perudo Master - Auto UI</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <style>
-        :root { --p: #3b82f6; --s: #10b981; --d: #ef4444; --bg: #0f172a; --c: #1e293b; --t: #f8fafc; }
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--t); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
-        .container { width: 100%; max-width: 480px; }
-        .card { background: var(--c); padding: 15px; border-radius: 16px; margin-bottom: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-        .dice { font-size: 45px; color: #fbbf24; letter-spacing: 5px; min-height: 50px; margin: 10px 0; text-align: center; }
-        .player-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #334155; }
-        .player-row.active { background: #1e40af; border-radius: 12px; }
-        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.95); }
-        .btn-p { background: var(--p); color: white; width: 100%; }
-        .btn-s { background: var(--s); color: white; width: 100%; }
-        .btn-d { background: var(--d); color: white; }
-        .mode-btn { background: #334155; color: #94a3b8; margin: 4px; font-size: 11px; padding: 8px 12px; }
-        .mode-active { background: var(--p); color: white; box-shadow: 0 0 10px var(--p); }
-        input { background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; width: 100%; box-sizing: border-box; }
-        input[type="number"] { font-size: 20px; text-align: center; }
-        #logs { font-size: 12px; color: #94a3b8; height: 110px; overflow-y: auto; text-align: left; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div id="login-box" class="card" style="text-align: center;">
-            <h2 style="color: var(--p)">🎲 PERUDO PRO</h2>
-            <input type="text" id="user" placeholder="Username" style="margin-bottom:10px">
-            <input type="password" id="pass" placeholder="Password" style="margin-bottom:15px">
-            <button class="btn-p" onclick="login()">ĐĂNG NHẬP</button>
-        </div>
-
-        <div id="game-box" style="display:none">
-            <div class="card"><div id="myDice" class="dice"></div></div>
-
-            <div class="card" style="text-align: center;">
-                <div id="lobby-ui">
-                    <div id="mode-selectors"></div>
-                    <div id="mode-desc" style="font-size: 11px; color: #64748b; margin-top: 10px; font-style: italic;"></div>
-                    <button id="startBtn" class="btn-p" onclick="socket.emit('start')" style="display:none; margin-top: 15px;">BẮT ĐẦU GAME</button>
-                </div>
-
-                <div id="gameplay-ui" style="display:none">
-                    <div id="status" style="font-weight: bold; color: var(--s); margin-bottom: 5px;"></div>
-                    <h1 id="currentBid" style="margin: 5px 0; color: var(--p);">---</h1>
-                    <div id="actions" style="display:none">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                            <div><small>Số lượng</small><br><input type="number" id="bc" value="1"></div>
-                            <div><small>Mặt</small><br><input type="number" id="bf" value="2" min="1" max="6"></div>
-                            <button class="btn-s" onclick="socket.emit('bid', {count:parseInt(bc.value), face:parseInt(bf.value)})" style="grid-column: span 2;">ĐẶT THẦU</button>
-                            <button class="btn-d" onclick="socket.emit('liar')" style="grid-column: span 2;">HÔ LIAR!</button>
-                        </div>
-                    </div>
-                    <div id="result-ui" style="display:none; margin-top: 10px;">
-                        <button class="btn-s" onclick="socket.emit('nextRound')">SẴN SÀNG VÒNG TIẾP ⮕</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card" style="padding: 5px;"><div id="playerList"></div></div>
-            <div class="card" id="logs"></div>
-            <button onclick="confirm('Reset?') && socket.emit('resetRoom')" style="background:none; color:#334155; font-size:10px; width: 100%;">RESET SERVER</button>
-        </div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
-        let myName = "";
-
-        if (localStorage.getItem('p_user')) {
-            document.getElementById('user').value = localStorage.getItem('p_user');
-            document.getElementById('pass').value = localStorage.getItem('p_pass');
-        }
-
-        function login() {
-            const u = document.getElementById('user').value;
-            const p = document.getElementById('pass').value;
-            if (u && p) {
-                localStorage.setItem('p_user', u); localStorage.setItem('p_pass', p);
-                socket.emit('login', { username: u, password: p });
-            }
-        }
-
-        socket.on('loginSuccess', (n) => { myName = n; document.getElementById('login-box').style.display = 'none'; document.getElementById('game-box').style.display = 'block'; });
-        socket.on('err', (m) => alert(m));
-        socket.on('reloadAll', () => { localStorage.clear(); location.reload(); });
-
-        socket.on('update', ({ players, game, allModes, currentModeInfo }) => {
-            const meObj = players.find(p => p.name === myName);
-            const myDiceEl = document.getElementById('myDice');
-            
-            myDiceEl.innerText = game.active ? (meObj?.alive ? meObj.dice.map(d => diceIcons[d]).join(' ') : "BỊ LOẠI") : "PHÒNG CHỜ";
-            myDiceEl.style.fontSize = game.active ? "45px" : "20px";
-
-            document.getElementById('lobby-ui').style.display = game.active ? 'none' : 'block';
-            document.getElementById('gameplay-ui').style.display = game.active ? 'block' : 'none';
-
-            if (!game.active) {
-                // TỰ ĐỘNG VẼ NÚT CHỌN MODE TỪ SERVER
-                document.getElementById('mode-selectors').innerHTML = allModes.map(m => `
-                    <button class="mode-btn ${game.mode === m ? 'mode-active' : ''}" 
-                            onclick="socket.emit('changeMode', '${m}')">${m.toUpperCase()}</button>
-                `).join('');
-                document.getElementById('mode-desc').innerText = currentModeInfo.desc;
-                document.getElementById('startBtn').style.display = players.length >= 2 ? 'block' : 'none';
-            } else {
-                const isTurn = !game.showingResults && players[game.turn]?.name === myName;
-                document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face === 1 ? 'Ace' : game.bid.face}]` : "MỞ BÁT...";
-                document.getElementById('actions').style.display = isTurn ? 'block' : 'none';
-                document.getElementById('result-ui').style.display = game.showingResults ? 'block' : 'none';
-                document.getElementById('status').innerText = game.showingResults ? "KẾT QUẢ" : (isTurn ? "🔥 LƯỢT BẠN" : `Đợi: ${players[game.turn]?.name}`);
-            }
-
-            document.getElementById('playerList').innerHTML = players.map((p, i) => `
-                <div class="player-row ${game.turn === i && game.active ? 'active' : ''} ${!p.online ? 'offline' : ''}">
-                    <div style="display:flex; align-items:center">
-                        ${!game.active ? `<button style="padding:2px;font-size:8px" onclick="socket.emit('movePlayer',{index:${i},direction:-1})">▲</button><button style="padding:2px;font-size:8px" onclick="socket.emit('movePlayer',{index:${i},direction:1})">▼</button>` : ''}
-                        <span style="font-size:13px;margin-left:5px">${p.online ? '🟢' : '⚪'} ${p.name}</span>
-                    </div>
-                    <span style="font-size:18px; color:#fbbf24">${!game.active ? '🎲x5' : (p.alive ? (game.showingResults ? p.dice.map(d => diceIcons[d]).join('') : '🎲'.repeat(p.count)) : '❌')}</span>
-                </div>
-            `).join('');
-            document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
-        });
-    </script>
-</body>
-</html> -->
-
+<!-- 
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -191,7 +60,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- ĐĂNG NHẬP -->
         <div id="login-box" class="card login-box" style="text-align: center;">
             <h1 style="color: var(--p); margin-bottom: 25px;">🎲 PERUDO PRO</h1>
             <input type="text" id="user" placeholder="Tên của bạn" spellcheck="false">
@@ -199,7 +67,6 @@
             <button class="btn-main btn-p" onclick="login()">BẮT ĐẦU CHƠI</button>
         </div>
 
-        <!-- GAMEPLAY -->
         <div id="game-box" style="display:none">
             <div class="card" style="text-align: center; background: radial-gradient(circle at top, #1e293b, #0f172a);">
                 <div id="status"></div>
@@ -210,7 +77,6 @@
                 </div>
             </div>
 
-            <!-- ĐIỀU KHIỂN -->
             <div id="controls-card" class="card">
                 <div id="lobby-ui" style="text-align: center;">
                     <div id="mode-selectors" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;"></div>
@@ -229,7 +95,6 @@
                     </div>
 
                     <div class="face-selector" id="face-btns">
-                        <!-- Nút mặt xúc xắc từ 1-6 -->
                         <button class="face-btn" onclick="selectFace(1)">⚀</button>
                         <button class="face-btn" onclick="selectFace(2)">⚁</button>
                         <button class="face-btn" onclick="selectFace(3)">⚂</button>
@@ -371,6 +236,231 @@
             // Logs
             const logEl = document.getElementById('logs');
             logEl.innerHTML = game.logs.slice().reverse().map(l => `<div style="margin-bottom:4px; border-left: 2px solid #334155; padding-left: 8px;">${l}</div>`).join('');
+        });
+        
+        updateBidDisplay();
+    </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <title>Perudo Master Pro</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <style>
+        :root { 
+            --p: #3b82f6; --s: #10b981; --d: #ef4444; 
+            --bg: #0f172a; --c: #1e293b; --t: #f8fafc; --t-mute: #94a3b8;
+        }
+        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--t); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 480px; }
+        
+        /* Card & UI */
+        .card { background: var(--c); padding: 18px; border-radius: 24px; margin-bottom: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        
+        /* Login */
+        .login-box input { background: #0f172a; border: 1px solid #334155; color: white; padding: 14px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 16px; }
+
+        /* Xúc xắc Chính của bạn */
+        .dice-set { font-size: 50px; color: #fbbf24; letter-spacing: 8px; margin: 15px 0; text-shadow: 0 0 15px rgba(251, 191, 36, 0.4); }
+
+        /* Nút Chế Độ (Mode Buttons) - ĐÃ FIX LỖI KHÔNG SÁNG */
+        .mode-btn { background: #334155; color: #64748b; margin: 4px; font-size: 11px; padding: 10px 14px; border-radius: 10px; border: 1px solid transparent; }
+        .mode-active { 
+            background: var(--p) !important; 
+            color: white !important; 
+            border: 1px solid #60a5fa !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.7);
+            transform: translateY(-2px);
+        }
+
+        /* Xúc xắc kết quả (Showdown) - ĐÃ PHÓNG TO */
+        .dice-reveal {
+            font-size: 32px; 
+            color: #fbbf24;
+            letter-spacing: 4px;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Điều khiển Thầu */
+        .bid-controls { display: flex; flex-direction: column; gap: 15px; }
+        .counter-group { display: flex; align-items: center; justify-content: center; gap: 20px; }
+        .btn-circle { width: 55px; height: 55px; border-radius: 50%; background: #334155; color: white; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+        .face-selector { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+        .face-btn { padding: 12px 0; background: #334155; border-radius: 12px; font-size: 22px; transition: 0.2s; color: #94a3b8; }
+        .face-btn.selected { background: var(--p); color: white; transform: scale(1.1); box-shadow: 0 0 15px var(--p); }
+
+        /* Nút chính */
+        button { border: none; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .btn-main { padding: 16px; border-radius: 16px; width: 100%; font-size: 16px; text-transform: uppercase; }
+        .btn-p { background: var(--p); color: white; }
+        .btn-s { background: var(--s); color: white; }
+        .btn-d { background: var(--d); color: white; }
+        
+        /* Player List */
+        .player-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: 14px; margin-bottom: 6px; background: rgba(255,255,255,0.03); }
+        .p-turn { background: rgba(59, 130, 246, 0.15); border: 1px solid var(--p); }
+        .p-name { font-weight: 600; display: flex; align-items: center; gap: 10px; font-size: 15px; }
+        .offline { opacity: 0.3; filter: grayscale(1); }
+
+        #logs { font-size: 12px; color: var(--t-mute); height: 110px; overflow-y: auto; border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px; }
+        .waiting-anim { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ĐĂNG NHẬP -->
+        <div id="login-box" class="card login-box" style="text-align: center;">
+            <h1 style="color: var(--p); margin-bottom: 30px;">🎲 PERUDO PRO</h1>
+            <input type="text" id="user" placeholder="Nhập tên..." spellcheck="false">
+            <input type="password" id="pass" placeholder="Mật khẩu...">
+            <button class="btn-main btn-p" onclick="login()">VÀO PHÒNG CHƠI</button>
+        </div>
+
+        <!-- GAMEPLAY -->
+        <div id="game-box" style="display:none">
+            <div class="card" style="text-align: center; background: radial-gradient(circle at top, #1e293b, #0f172a);">
+                <div id="status" style="text-transform: uppercase; font-size: 13px; color: var(--t-mute);"></div>
+                <div id="myDice" class="dice-set"></div>
+                <div id="bidArea">
+                    <h1 id="currentBid" style="margin: 5px 0; font-size: 38px; color: var(--p);">---</h1>
+                </div>
+            </div>
+
+            <!-- ĐIỀU KHIỂN -->
+            <div class="card">
+                <div id="lobby-ui" style="text-align: center;">
+                    <div id="mode-selectors" style="display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 10px;"></div>
+                    <p id="mode-desc" style="font-size: 12px; color: var(--t-mute); margin-bottom: 20px; min-height: 30px;"></p>
+                    <button id="startBtn" class="btn-main btn-p" onclick="socket.emit('start')">BẮT ĐẦU TRẬN ĐẤU</button>
+                </div>
+
+                <div id="actions-ui" style="display:none" class="bid-controls">
+                    <div class="counter-group">
+                        <button class="btn-circle" onclick="changeCount(-1)">−</button>
+                        <div style="text-align: center; min-width: 90px;">
+                            <small style="color: var(--t-mute)">SỐ LƯỢNG</small>
+                            <div id="bid-count-val" style="font-size: 36px; font-weight: 900;">1</div>
+                        </div>
+                        <button class="btn-circle" onclick="changeCount(1)">+</button>
+                    </div>
+
+                    <div class="face-selector" id="face-btns">
+                        <button class="face-btn" onclick="selectFace(1)">⚀</button>
+                        <button class="face-btn" onclick="selectFace(2)">⚁</button>
+                        <button class="face-btn" onclick="selectFace(3)">⚂</button>
+                        <button class="face-btn" onclick="selectFace(4)">⚃</button>
+                        <button class="face-btn" onclick="selectFace(5)">⚄</button>
+                        <button class="face-btn" onclick="selectFace(6)">⚅</button>
+                    </div>
+
+                    <button class="btn-main btn-s" onclick="confirmBid()">XÁC NHẬN THẦU</button>
+                    <button class="btn-main btn-d" onclick="socket.emit('liar')">HÔ LIAR!</button>
+                </div>
+
+                <div id="result-ui" style="display:none">
+                    <button class="btn-main btn-s" onclick="socket.emit('nextRound')">VÒNG TIẾP THEO ⮕</button>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 10px;" id="playerList"></div>
+            <div class="card" id="logs"></div>
+            <button onclick="confirm('Reset?') && socket.emit('resetRoom')" style="background:none; color:var(--t-mute); font-size:10px; width: 100%; opacity: 0.5;">Làm mới máy chủ</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+        let myName = "";
+        let currentBidCount = 1;
+        let currentBidFace = 2;
+
+        if (localStorage.getItem('p_user')) {
+            document.getElementById('user').value = localStorage.getItem('p_user');
+            document.getElementById('pass').value = localStorage.getItem('p_pass');
+        }
+
+        function login() {
+            const u = document.getElementById('user').value.trim();
+            const p = document.getElementById('pass').value.trim();
+            if (u && p) {
+                localStorage.setItem('p_user', u); localStorage.setItem('p_pass', p);
+                socket.emit('login', { username: u, password: p });
+            }
+        }
+
+        socket.on('loginSuccess', (n) => { myName = n; document.getElementById('login-box').style.display = 'none'; document.getElementById('game-box').style.display = 'block'; });
+        socket.on('err', (m) => alert(m));
+        socket.on('reloadAll', () => { localStorage.clear(); location.reload(); });
+
+        function changeCount(val) { currentBidCount = Math.max(1, currentBidCount + val); updateBidDisplay(); }
+        function selectFace(f) { currentBidFace = f; updateBidDisplay(); }
+        function updateBidDisplay() {
+            document.getElementById('bid-count-val').innerText = currentBidCount;
+            document.querySelectorAll('.face-btn').forEach((btn, idx) => {
+                btn.classList.toggle('selected', (idx + 1) === currentBidFace);
+            });
+        }
+        function confirmBid() { socket.emit('bid', { count: currentBidCount, face: currentBidFace }); }
+
+        socket.on('update', ({ players, game, allModes, currentModeInfo }) => {
+            const meObj = players.find(p => p.name === myName);
+            const myDiceEl = document.getElementById('myDice');
+            
+            myDiceEl.innerText = game.active ? (meObj?.alive ? meObj.dice.map(d => diceIcons[d]).join(' ') : "BỊ LOẠI") : "PHÒNG CHỜ";
+            myDiceEl.style.fontSize = game.active ? "50px" : "22px";
+
+            document.getElementById('lobby-ui').style.display = game.active ? 'none' : 'block';
+            document.getElementById('actions-ui').style.display = (game.active && !game.showingResults) ? 'block' : 'none';
+            document.getElementById('result-ui').style.display = (game.active && game.showingResults) ? 'block' : 'none';
+
+            if (!game.active) {
+                document.getElementById('mode-selectors').innerHTML = allModes.map(m => `
+                    <button class="mode-btn ${game.mode === m ? 'mode-active' : ''}" 
+                            onclick="socket.emit('changeMode', '${m}')">${m.toUpperCase()}</button>
+                `).join('');
+                document.getElementById('mode-desc').innerText = currentModeInfo.desc;
+                document.getElementById('startBtn').style.display = players.length >= 2 ? 'block' : 'none';
+            } else {
+                const isTurn = !game.showingResults && players[game.turn]?.name === myName;
+                document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} × ${diceIcons[game.bid.face]}` : "MỞ BÁT";
+                
+                if (isTurn && (currentBidCount <= game.bid.count)) {
+                    currentBidCount = game.bid.count + (game.bid.face === 6 ? 1 : 0);
+                    currentBidFace = game.bid.face === 6 ? 2 : game.bid.face + 1;
+                    updateBidDisplay();
+                    if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
+                }
+                
+                const statusEl = document.getElementById('status');
+                statusEl.innerText = game.showingResults ? "🔍 KẾT QUẢ HẠ BÀI" : (isTurn ? "ĐẾN LƯỢT BẠN" : `ĐỢI ${players[game.turn]?.name}...`);
+                statusEl.className = isTurn ? "waiting-anim" : "";
+                statusEl.style.color = isTurn ? "var(--s)" : "var(--t-mute)";
+            }
+
+            document.getElementById('playerList').innerHTML = players.map((p, i) => `
+                <div class="player-row ${game.turn === i && game.active ? 'p-turn' : ''} ${!p.online ? 'offline' : ''}">
+                    <div class="p-name">
+                        ${!game.active ? `<div style="display:flex;flex-direction:column"><button style="padding:2px;font-size:8px" onclick="socket.emit('movePlayer',{index:${i},direction:-1})">▲</button><button style="padding:2px;font-size:8px" onclick="socket.emit('movePlayer',{index:${i},direction:1})">▼</button></div>` : ''}
+                        <span>${p.online ? '🟢' : '⚪'} ${p.name}</span>
+                    </div>
+                    <span class="p-dice">
+                        ${!game.active ? '🎲×5' : (p.alive ? (game.showingResults ? `<span class="dice-reveal">${p.dice.map(d => diceIcons[d]).join('')}</span>` : '🎲'.repeat(p.count)) : 'OUT')}
+                    </span>
+                </div>
+            `).join('');
+
+            document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div style="margin-bottom:4px; border-left: 2px solid #334155; padding-left: 8px;">${l}</div>`).join('');
         });
         
         updateBidDisplay();
