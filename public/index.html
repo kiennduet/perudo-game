@@ -1,52 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Perudo Lite</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perudo Online</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <style>
-    body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; }
-    .card { background: #333; margin: 10px; padding: 15px; border-radius: 8px; }
-    .dice { font-size: 30px; color: #ffd700; letter-spacing: 5px; }
-    input { width: 60px; padding: 10px; border-radius: 5px; border: none; }
-    button { padding: 10px 20px; border-radius: 5px; border: none; background: #4CAF50; color: white; cursor: pointer; }
-    .liar-btn { background: #f44336; }
-    #logs { font-size: 12px; color: #aaa; height: 80px; overflow-y: auto; border-top: 1px solid #444; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #e0e0e0; margin: 0; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 500px; padding: 15px; box-sizing: border-box; }
+    .card { background: #1e1e1e; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .dice-area { font-size: 32px; color: #ffca28; letter-spacing: 4px; margin: 10px 0; min-height: 40px; }
+    .player-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #333; }
+    .active-player { background: #2e7d32; border-radius: 8px; color: white; }
+    .dead { color: #757575; text-decoration: line-through; }
+    input { background: #333; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; width: 60px; font-size: 16px; }
+    button { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    button:disabled { background: #444; cursor: not-allowed; }
+    .liar-btn { background: #f44336; margin-left: 5px; }
+    #logs { font-size: 13px; color: #bbb; max-height: 120px; overflow-y: auto; text-align: left; }
+    h2 { color: #2196F3; margin-top: 0; }
   </style>
 </head>
 <body>
-  <div id="login">
-    <h2>PERUDO</h2>
-    <input type="text" id="nick" placeholder="Tên...">
-    <button onclick="join()">Chơi</button>
-  </div>
-
-  <div id="room" style="display:none">
-    <div class="card">
-      <div>Xúc xắc của bạn:</div>
-      <div id="myDice" class="dice"></div>
+  <div class="container">
+    <div id="login" class="card">
+      <h2>PERUDO</h2>
+      <input type="text" id="nick" placeholder="Tên bạn..." style="width: 70%; margin-bottom: 10px;">
+      <br>
+      <button onclick="join()" style="width: 80%">VÀO PHÒNG</button>
     </div>
-    
-    <div class="card">
-      <div id="status">Đang chờ...</div>
-      <h3 id="currentBid">Chưa có ai thầu</h3>
-      <div id="actions" style="display:none">
-        <input type="number" id="bc" value="1"> con 
-        <input type="number" id="bf" value="2" min="2" max="6">
-        <button onclick="bid()">Thầu</button>
-        <button class="liar-btn" onclick="liar()">LIAR!</button>
+
+    <div id="room" style="display:none">
+      <div class="card">
+        <div style="font-size: 14px; color: #aaa;">Xúc xắc của bạn:</div>
+        <div id="myDice" class="dice-area"></div>
       </div>
-      <button id="startBtn" onclick="start()" style="display:none">BẮT ĐẦU GAME</button>
-    </div>
+      
+      <div class="card">
+        <div id="status" style="font-weight: bold; margin-bottom: 10px; color: #4CAF50;">Đang đợi...</div>
+        <div style="font-size: 14px; color: #aaa;">Mức thầu hiện tại:</div>
+        <h2 id="currentBid">---</h2>
+        
+        <div id="actions" style="display:none">
+          <input type="number" id="bc" value="1" min="1"> con 
+          <input type="number" id="bf" value="2" min="2" max="6">
+          <button onclick="bid()">THẦU</button>
+          <button class="liar-btn" onclick="liar()">LIAR!</button>
+        </div>
+        <button id="startBtn" onclick="start()" style="display:none; width: 100%;">BẮT ĐẦU GAME</button>
+      </div>
 
-    <div id="playerList"></div>
-    <div id="logs" class="card"></div>
+      <div class="card">
+        <div id="playerList"></div>
+      </div>
+
+      <div class="card" id="logs"></div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     function join() {
-      socket.emit('join', document.getElementById('nick').value);
+      const name = document.getElementById('nick').value;
+      if (!name) return alert("Hãy nhập tên");
+      socket.emit('join', name);
       document.getElementById('login').style.display = 'none';
       document.getElementById('room').style.display = 'block';
     }
@@ -58,19 +74,26 @@
 
     socket.on('update', ({players, game, me}) => {
       const myData = players.find(p => p.id === me);
-      if (myData) document.getElementById('myDice').innerText = myData.dice.join(' ') || 'ĐÃ CHẾT';
+      if (myData) {
+        // Chuyển số thành icon xúc xắc
+        const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+        document.getElementById('myDice').innerText = myData.dice.map(d => diceIcons[d] || d).join(' ');
+      }
       
-      document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'inline-block' : 'none';
-      document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con ${game.bid.face}` : "Đang chờ thầu...";
+      document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'block' : 'none';
+      document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face}]` : "Đợi thầu...";
       
       const isMyTurn = game.active && players[game.turn] && players[game.turn].id === me;
       document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
-      document.getElementById('status').innerText = isMyTurn ? "ĐẾN LƯỢT BẠN!" : `Lượt của: ${players[game.turn]?.name || '...'}`;
+      document.getElementById('status').innerText = isMyTurn ? "🔥 LƯỢT CỦA BẠN!" : `Đang đợi: ${players[game.turn]?.name || '...'}`;
 
       document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
       
-      document.getElementById('playerList').innerHTML = players.map(p => 
-        `<div style="color:${p.alive?'#fff':'#666'}">${p.name} (${p.count} 🎲)</div>`
+      document.getElementById('playerList').innerHTML = players.map((p, index) => 
+        `<div class="player-item ${game.turn === index && game.active ? 'active-player' : ''} ${p.alive ? '' : 'dead'}">
+          <span>${p.name}</span>
+          <span>${p.count > 0 ? '🎲'.repeat(p.count) : 'LOẠI'}</span>
+        </div>`
       ).join('');
     });
   </script>
