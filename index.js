@@ -1,103 +1,105 @@
+
+
 // const express = require('express');
 // const app = express();
 // const http = require('http').createServer(app);
 // const io = require('socket.io')(http);
-// const path = require('path');
 
-// app.use(express.static(path.join(__dirname, 'public')));
+// app.use(express.static('public'));
 
-// let users = {}; 
-// let players = []; 
-// let game = { 
-//     active: false, 
-//     bid: { count: 0, face: 0, pIdx: -1 }, 
-//     turn: 0, 
-//     logs: [], 
-//     showingResults: false, 
-//     aceUsed: false,
-//     mode: "Classic" // Mặc định
-// };
-
-// const MODE_DESC = {
-//     "Classic": "Luật quốc tế: Ace (mặt 1) là Joker. Có thể thầu Ace để giảm số lượng (chia 2), hoặc từ Ace về mặt thường (x2+1). Mỗi vòng chỉ được nhảy Ace 1 lần.",
-//     "Simple": "Dành cho người mới: Ace chỉ là mặt 1 bình thường, không có Joker. Ai thầu số lượng cao hơn hoặc mặt cao hơn là thắng. Không có luật nhảy Ace.",
-//     "FixedFace": "Cực khó: Khi người đầu tiên thầu mặt nào (ví dụ mặt 4), cả vòng đó chỉ được phép tăng số lượng con [4], không được đổi sang mặt khác."
-// };
-
-// function validateRules(nB, oB, mode, aceUsed) {
-//     if (nB.face < 1 || nB.face > 6 || nB.count <= 0) return false;
-//     if (oB.count === 0) return nB.face !== 1; // Phát súng đầu không Ace
-
-//     if (mode === "Classic") {
-//         if (nB.face === 1 && aceUsed) return false;
-//         if (oB.face !== 1 && nB.face !== 1) {
-//             return (nB.count > oB.count) || (nB.count === oB.count && nB.face > oB.face);
-//         } else if (oB.face !== 1 && nB.face === 1) {
-//             return nB.count >= Math.ceil(oB.count / 2);
-//         } else if (oB.face === 1 && nB.face !== 1) {
-//             return nB.count >= (oB.count * 2 + 1);
+// // ==========================================
+// // HỆ THỐNG QUẢN LÝ LUẬT (RULE ENGINE)
+// // ==========================================
+// const MODES = {
+//     "Classic": {
+//         desc: "Luật chuẩn: Mặt 1 là Joker. Thầu Ace: Chia 2. Từ Ace sang thường: x2+1. Cho phép thầu Ace chồng Ace.",
+//         validate: (n, o) => {
+//             if (o.count === 0) return n.face !== 1; // Phát súng đầu không Ace
+//             if (o.face !== 1 && n.face !== 1) return (n.count > o.count) || (n.count === o.count && n.face > o.face);
+//             if (o.face !== 1 && n.face === 1) return n.count >= Math.ceil(o.count / 2);
+//             if (o.face === 1 && n.face === 1) return n.count > o.count;
+//             if (o.face === 1 && n.face !== 1) return n.count >= (o.count * 2 + 1);
+//             return false;
+//         },
+//         count: (dicePool, face) => {
+//             // Tính mặt thầu + mặt 1 (Joker)
+//             return dicePool.filter(d => d === face || d === 1).length;
 //         }
-//     } else if (mode === "Simple") {
-//         return (nB.count > oB.count) || (nB.count === oB.count && nB.face > oB.face);
-//     } else if (mode === "FixedFace") {
-//         return (nB.count > oB.count) && (nB.face === oB.face);
+//     },
+
+//     "NoJoker": {
+//         desc: "Ace chỉ là mặt 1 bình thường, không có Joker. Tăng số lượng hoặc tăng mặt là đi tiếp.",
+//         validate: (n, o) => (n.count > o.count) || (n.count === o.count && n.face > o.face),
+//         count: (dicePool, face) => dicePool.filter(d => d === face).length
+//     },
+//     "Speedy": {
+//         desc: "Luật siêu tốc: Bắt buộc phải thầu số lượng cao hơn người trước, không quan tâm mặt.",
+//         validate: (n, o) => n.count > o.count,
+//         count: (dicePool, face) => dicePool.filter(d => d === face || d === 1).length
 //     }
-//     return false;
-// }
+//     // THÊM LUẬT MỚI TẠI ĐÂY: Chỉ cần copy cấu trúc validate/count là xong
+// };
+
+// // ==========================================
+// // LOGIC GAME CHÍNH
+// // ==========================================
+// let users = {}; let players = [];
+// let game = { active: false, bid: { count: 0, face: 0, pIdx: -1 }, turn: 0, logs: [], showingResults: false, mode: "Classic" };
 
 // io.on('connection', (socket) => {
 //     socket.on('login', ({ username, password }) => {
 //         const name = username.trim();
 //         if (!users[name]) users[name] = password;
 //         else if (users[name] !== password) return socket.emit('err', 'Sai mật khẩu!');
+        
 //         let p = players.find(x => x.name === name);
-//         if (p) { p.id = socket.id; p.online = true; } 
+//         if (p) { p.id = socket.id; p.online = true; }
 //         else {
-//             if (game.active) return socket.emit('err', 'Game đang chạy!');
+//             if (game.active) return socket.emit('err', 'Đang trong trận!');
 //             players.push({ id: socket.id, name: name, dice: [], alive: true, online: true });
 //         }
 //         socket.emit('loginSuccess', name);
 //         sync();
 //     });
 
-//     socket.on('changeMode', (newMode) => {
-//         if (game.active) return;
-//         game.mode = newMode;
-//         sync();
-//     });
+//     socket.on('changeMode', (m) => { if (!game.active && MODES[m]) { game.mode = m; sync(); } });
 
 //     socket.on('start', () => {
 //         if (players.filter(p => p.online).length < 2) return;
-//         game.active = true;
-//         game.showingResults = false;
-//         game.aceUsed = false;
+//         game.active = true; game.showingResults = false;
 //         game.bid = { count: 0, face: 0, pIdx: -1 };
-//         game.logs = [`--- BẮT ĐẦU: CHẾ ĐỘ ${game.mode.toUpperCase()} ---`];
+//         game.logs = [`--- CHẾ ĐỘ: ${game.mode} ---`];
 //         players.forEach(p => { p.alive = p.online; p.dice = p.alive ? [0,0,0,0,0] : []; });
-//         newRound();
-//         sync();
+//         newRound(); sync();
 //     });
 
 //     socket.on('bid', (data) => {
 //         const p = players[game.turn];
 //         if (!game.active || game.showingResults || p.id !== socket.id) return;
-//         if (validateRules(data, game.bid, game.mode, game.aceUsed)) {
-//             if (data.face === 1) game.aceUsed = true;
+        
+//         // Gọi Rule Engine để kiểm tra
+//         if (MODES[game.mode].validate(data, game.bid)) {
 //             game.bid = { count: data.count, face: data.face, pIdx: game.turn };
 //             game.logs.push(`${p.name}: ${data.count} con [${data.face === 1 ? 'Ace' : data.face}]`);
 //             nextTurn(); sync();
-//         } else { socket.emit('err', 'Thầu sai luật!'); }
+//         } else {
+//             socket.emit('err', 'Thầu sai luật ' + game.mode);
+//         }
 //     });
 
 //     socket.on('liar', () => {
 //         const p = players[game.turn];
 //         if (!game.active || game.bid.count === 0 || game.showingResults || p.id !== socket.id) return;
-//         const face = game.bid.face;
-//         const total = players.reduce((s, pl) => s + pl.dice.filter(d => d === face || (game.mode === "Classic" && d === 1)).length, 0);
+        
+//         const allDice = players.reduce((a, b) => a.concat(b.dice), []);
+//         // Gọi Rule Engine để tính tổng
+//         const total = MODES[game.mode].count(allDice, game.bid.face);
+        
 //         const isLiar = total < game.bid.count;
 //         const loserIdx = isLiar ? game.bid.pIdx : game.turn;
+        
 //         game.showingResults = true;
-//         game.logs.push(`Hạ bài: Có ${total} con [${face===1?'Ace':face}]`);
+//         game.logs.push(`Hạ bài: Có ${total} con [${game.bid.face===1?'Ace':game.bid.face}]`);
 //         players[loserIdx].dice.pop();
 //         if (players[loserIdx].dice.length === 0) players[loserIdx].alive = false;
 //         if (players.filter(p => p.alive).length <= 1) game.active = false;
@@ -105,18 +107,14 @@
 //         sync(true);
 //     });
 
-//     socket.on('nextRound', () => {
-//         if (!game.active) return;
-//         game.showingResults = false; game.aceUsed = false; newRound(); sync();
-//     });
-
+//     socket.on('nextRound', () => { if (game.active) { game.showingResults = false; newRound(); sync(); } });
 //     socket.on('movePlayer', ({index, direction}) => {
-//         if (game.active) return;
-//         const nI = index + direction;
-//         if (nI >= 0 && nI < players.length) [players[index], players[nI]] = [players[nI], players[index]];
-//         sync();
+//         if (!game.active) {
+//             const nI = index + direction;
+//             if (nI >= 0 && nI < players.length) [players[index], players[nI]] = [players[nI], players[index]];
+//             sync();
+//         }
 //     });
-
 //     socket.on('resetRoom', () => { players = []; users = {}; game.active = false; io.emit('reloadAll'); });
 //     socket.on('disconnect', () => { let p = players.find(x => x.id === socket.id); if (p) p.online = false; sync(); });
 
@@ -124,18 +122,16 @@
 //         players.forEach(p => { if(p.alive) p.dice = p.dice.map(() => Math.floor(Math.random()*6)+1); });
 //         game.bid = { count: 0, face: 0, pIdx: -1 };
 //     }
-
 //     function nextTurn() {
 //         let c = 0; do { game.turn = (game.turn + 1) % players.length; c++; } while (!players[game.turn].alive && c < 11);
 //     }
-
 //     function sync(showAll = false) {
 //         players.forEach(p => {
 //             const data = players.map(pl => ({
 //                 name: pl.name, alive: pl.alive, count: pl.dice.length, online: pl.online,
 //                 dice: (showAll || game.showingResults || pl.id === p.id || !game.active) ? pl.dice : []
 //             }));
-//             io.to(p.id).emit('update', { players: data, game, modeDesc: MODE_DESC[game.mode] });
+//             io.to(p.id).emit('update', { players: data, game, modeInfo: MODES[game.mode] });
 //         });
 //     }
 // });
@@ -147,57 +143,58 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const path = require('path');
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ==========================================
-// HỆ THỐNG QUẢN LÝ LUẬT (RULE ENGINE)
+// HỆ THỐNG QUẢN LÝ LUẬT (MODULAR RULES)
 // ==========================================
 const MODES = {
     "Classic": {
-        desc: "Luật chuẩn: Mặt 1 là Joker. Thầu Ace: Chia 2. Từ Ace sang thường: x2+1. Cho phép thầu Ace chồng Ace.",
-        validate: (n, o) => {
-            if (o.count === 0) return n.face !== 1; // Phát súng đầu không Ace
+        desc: "Luật chuẩn: Ace là Joker. Thầu Ace: Chia 2. Từ Ace sang thường: x2+1. Cho phép thầu Ace chồng Ace.",
+        validate: (n, o, aceUsed) => {
+            if (o.count === 0) return n.face !== 1;
             if (o.face !== 1 && n.face !== 1) return (n.count > o.count) || (n.count === o.count && n.face > o.face);
             if (o.face !== 1 && n.face === 1) return n.count >= Math.ceil(o.count / 2);
             if (o.face === 1 && n.face === 1) return n.count > o.count;
             if (o.face === 1 && n.face !== 1) return n.count >= (o.count * 2 + 1);
             return false;
         },
-        count: (dicePool, face) => {
-            // Tính mặt thầu + mặt 1 (Joker)
-            return dicePool.filter(d => d === face || d === 1).length;
-        }
+        count: (dicePool, face) => dicePool.filter(d => d === face || d === 1).length
+    },
+    "OneAce": {
+        desc: "Luật Ace giới hạn: Giống Classic nhưng mặt Ace chỉ được thầu 1 lần duy nhất mỗi vòng. Sau đó Ace bị khóa.",
+        validate: (n, o, aceUsed) => {
+            if (n.face === 1 && aceUsed) return false; // Chặn nếu Ace đã dùng
+            if (o.count === 0) return n.face !== 1;
+            if (o.face !== 1 && n.face !== 1) return (n.count > o.count) || (n.count === o.count && n.face > o.face);
+            if (o.face !== 1 && n.face === 1) return n.count >= Math.ceil(o.count / 2);
+            if (o.face === 1 && n.face !== 1) return n.count >= (o.count * 2 + 1);
+            return false;
+        },
+        count: (dicePool, face) => dicePool.filter(d => d === face || d === 1).length
     },
     "NoJoker": {
-        desc: "Ace chỉ là mặt 1 bình thường, không có Joker. Tăng số lượng hoặc tăng mặt là đi tiếp.",
+        desc: "Ace chỉ là mặt 1 bình thường, không có Joker. Tăng số lượng hoặc tăng mặt là hợp lệ.",
         validate: (n, o) => (n.count > o.count) || (n.count === o.count && n.face > o.face),
         count: (dicePool, face) => dicePool.filter(d => d === face).length
-    },
-    "Speedy": {
-        desc: "Luật siêu tốc: Bắt buộc phải thầu số lượng cao hơn người trước, không quan tâm mặt.",
-        validate: (n, o) => n.count > o.count,
-        count: (dicePool, face) => dicePool.filter(d => d === face || d === 1).length
     }
-    // THÊM LUẬT MỚI TẠI ĐÂY: Chỉ cần copy cấu trúc validate/count là xong
 };
 
-// ==========================================
-// LOGIC GAME CHÍNH
-// ==========================================
-let users = {}; let players = [];
-let game = { active: false, bid: { count: 0, face: 0, pIdx: -1 }, turn: 0, logs: [], showingResults: false, mode: "Classic" };
+let users = {}; 
+let players = []; 
+let game = { active: false, bid: { count: 0, face: 0, pIdx: -1 }, turn: 0, logs: [], showingResults: false, mode: "Classic", aceUsed: false };
 
 io.on('connection', (socket) => {
     socket.on('login', ({ username, password }) => {
         const name = username.trim();
         if (!users[name]) users[name] = password;
         else if (users[name] !== password) return socket.emit('err', 'Sai mật khẩu!');
-        
         let p = players.find(x => x.name === name);
-        if (p) { p.id = socket.id; p.online = true; }
+        if (p) { p.id = socket.id; p.online = true; } 
         else {
-            if (game.active) return socket.emit('err', 'Đang trong trận!');
+            if (game.active) return socket.emit('err', 'Game đang chạy!');
             players.push({ id: socket.id, name: name, dice: [], alive: true, online: true });
         }
         socket.emit('loginSuccess', name);
@@ -208,9 +205,9 @@ io.on('connection', (socket) => {
 
     socket.on('start', () => {
         if (players.filter(p => p.online).length < 2) return;
-        game.active = true; game.showingResults = false;
-        game.bid = { count: 0, face: 0, pIdx: -1 };
-        game.logs = [`--- CHẾ ĐỘ: ${game.mode} ---`];
+        game.active = true; game.showingResults = false; game.turn = 0;
+        game.bid = { count: 0, face: 0, pIdx: -1 }; game.aceUsed = false;
+        game.logs = [`--- BẮT ĐẦU: ${game.mode.toUpperCase()} ---`];
         players.forEach(p => { p.alive = p.online; p.dice = p.alive ? [0,0,0,0,0] : []; });
         newRound(); sync();
     });
@@ -218,28 +215,21 @@ io.on('connection', (socket) => {
     socket.on('bid', (data) => {
         const p = players[game.turn];
         if (!game.active || game.showingResults || p.id !== socket.id) return;
-        
-        // Gọi Rule Engine để kiểm tra
-        if (MODES[game.mode].validate(data, game.bid)) {
+        if (MODES[game.mode].validate(data, game.bid, game.aceUsed)) {
+            if (data.face === 1) game.aceUsed = true;
             game.bid = { count: data.count, face: data.face, pIdx: game.turn };
             game.logs.push(`${p.name}: ${data.count} con [${data.face === 1 ? 'Ace' : data.face}]`);
             nextTurn(); sync();
-        } else {
-            socket.emit('err', 'Thầu sai luật ' + game.mode);
-        }
+        } else { socket.emit('err', 'Thầu sai luật hoặc Ace bị khóa!'); }
     });
 
     socket.on('liar', () => {
         const p = players[game.turn];
         if (!game.active || game.bid.count === 0 || game.showingResults || p.id !== socket.id) return;
-        
         const allDice = players.reduce((a, b) => a.concat(b.dice), []);
-        // Gọi Rule Engine để tính tổng
         const total = MODES[game.mode].count(allDice, game.bid.face);
-        
         const isLiar = total < game.bid.count;
         const loserIdx = isLiar ? game.bid.pIdx : game.turn;
-        
         game.showingResults = true;
         game.logs.push(`Hạ bài: Có ${total} con [${game.bid.face===1?'Ace':game.bid.face}]`);
         players[loserIdx].dice.pop();
@@ -249,7 +239,8 @@ io.on('connection', (socket) => {
         sync(true);
     });
 
-    socket.on('nextRound', () => { if (game.active) { game.showingResults = false; newRound(); sync(); } });
+    socket.on('nextRound', () => { if (game.active) { game.showingResults = false; game.aceUsed = false; newRound(); sync(); } });
+    
     socket.on('movePlayer', ({index, direction}) => {
         if (!game.active) {
             const nI = index + direction;
@@ -257,6 +248,7 @@ io.on('connection', (socket) => {
             sync();
         }
     });
+
     socket.on('resetRoom', () => { players = []; users = {}; game.active = false; io.emit('reloadAll'); });
     socket.on('disconnect', () => { let p = players.find(x => x.id === socket.id); if (p) p.online = false; sync(); });
 
