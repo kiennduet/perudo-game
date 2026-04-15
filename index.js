@@ -44,6 +44,17 @@ io.on('connection', (socket) => {
         sync();
     });
 
+    socket.on('movePlayer', ({ index, direction }) => {
+        if (game.active) return; // Không cho đổi vị trí khi đang chơi
+        const newIndex = index + direction;
+        if (newIndex >= 0 && newIndex < players.length) {
+            const temp = players[index];
+            players[index] = players[newIndex];
+            players[newIndex] = temp;
+            sync();
+        }
+    });    
+
     socket.on('start', () => {
         if (players.length < 2) return;
         players.forEach(p => { p.alive = true; p.dice = [0,0,0,0,0]; });
@@ -115,6 +126,7 @@ io.on('connection', (socket) => {
         if (p) p.online = false;
         sync();
     });
+
 
     function isValidBid(nB) {
         const oB = game.bid;
