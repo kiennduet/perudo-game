@@ -1,335 +1,118 @@
-<!-- <!DOCTYPE html>
-<html>
-<head>
-    <title>Perudo Online</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 10px; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333; }
-        .dice { font-size: 40px; color: #ffca28; letter-spacing: 5px; margin: 10px 0; min-height: 45px; }
-        .player { padding: 8px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; font-size: 14px; }
-        .active { background: #1b5e20; border-radius: 5px; font-weight: bold; }
-        input { width: 50px; padding: 10px; border-radius: 5px; border: none; background: #333; color: white; border: 1px solid #555; font-size: 16px; }
-        button { padding: 10px 15px; border-radius: 5px; border: none; background: #1976d2; color: white; font-weight: bold; cursor: pointer; }
-        .liar-btn { background: #d32f2f; }
-        #logs { font-size: 12px; color: #888; height: 100px; overflow-y: auto; text-align: left; }
-        .btn-reset { background: #444; margin-top: 15px; width: 100%; font-size: 11px; color: #aaa; }
-    </style>
-</head>
-<body>
-    <div id="login">
-        <h2>PERUDO ONLINE</h2>
-        <input type="text" id="nick" placeholder="Nhập tên...">
-        <button onclick="join()">Vào chơi</button>
-    </div>
-
-    <div id="room" style="display:none">
-        <div class="card">
-            <div id="myDice" class="dice"></div>
-        </div>
-
-        <div class="card">
-            <div id="status">Đang chờ...</div>
-            <h2 id="currentBid">---</h2>
-            <div id="actions" style="display:none">
-                <input type="number" id="bc" value="1" min="1"> con 
-                <input type="number" id="bf" value="2" min="1" max="6">
-                <button onclick="bid()">THẦU</button>
-                <button class="liar-btn" onclick="liar()">LIAR!</button>
-            </div>
-            <button id="startBtn" onclick="start()" style="display:none; width: 100%;">BẮT ĐẦU VÁN MỚI</button>
-            <button onclick="resetRoom()" class="btn-reset">RESET TOÀN BỘ PHÒNG</button>
-        </div>
-
-        <div class="card" id="playerList"></div>
-        <div id="logs" class="card"></div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
-        let myNick = localStorage.getItem('p_name') || "";
-
-        if (myNick) document.getElementById('nick').value = myNick;
-
-        function join() {
-            myNick = document.getElementById('nick').value;
-            if(!myNick) return;
-            localStorage.setItem('p_name', myNick);
-            socket.emit('join', myNick);
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('room').style.display = 'block';
-        }
-
-        function start() { socket.emit('start'); }
-        function resetRoom() { if(confirm("Reset sạch danh sách người chơi?")) socket.emit('resetRoom'); }
-        function bid() { 
-            socket.emit('bid', { count: parseInt(document.getElementById('bc').value), face: parseInt(document.getElementById('bf').value) }); 
-        }
-        function liar() { socket.emit('liar'); }
-
-        socket.on('roomReset', () => {
-            alert("Phòng đã reset!");
-            localStorage.removeItem('p_name');
-            location.reload();
-        });
-
-        socket.on('update', ({players, game, me}) => {
-            const myData = players.find(p => p.name === myNick);
-            if (myData && myData.dice.length > 0) {
-                document.getElementById('myDice').innerText = myData.dice.map(d => diceIcons[d] || d).join(' ');
-            } else {
-                document.getElementById('myDice').innerText = "---";
-            }
-            document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'block' : 'none';
-            document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face === 1 ? 'Ace' : game.bid.face}]` : "---";
-            const isMyTurn = game.active && players[game.turn] && players[game.turn].name === myNick;
-            document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
-            document.getElementById('status').innerText = isMyTurn ? "🔥 ĐẾN LƯỢT BẠN!" : `Đang đợi: ${players[game.turn]?.name || '...'}`;
-            document.getElementById('playerList').innerHTML = players.map((p, i) => `
-                <div class="player ${game.turn === i && game.active ? 'active' : ''}">
-                    <span>${p.name} ${p.name === myNick ? '(Bạn)' : ''}</span>
-                    <span>${p.alive ? '🎲'.repeat(p.count) : 'BỊ LOẠI'}</span>
-                </div>
-            `).join('');
-            document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
-        });
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html>
-<head>
-    <title>Perudo Online</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 10px; }
-        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333; }
-        .dice { font-size: 40px; color: #ffca28; letter-spacing: 5px; margin: 10px 0; min-height: 45px; }
-        .player { padding: 8px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; font-size: 14px; }
-        .active { background: #1b5e20; border-radius: 5px; font-weight: bold; }
-        input { width: 50px; padding: 10px; border-radius: 5px; border: none; background: #333; color: white; border: 1px solid #555; font-size: 16px; }
-        button { padding: 10px 15px; border-radius: 5px; border: none; background: #1976d2; color: white; font-weight: bold; cursor: pointer; }
-        .liar-btn { background: #d32f2f; }
-        #logs { font-size: 12px; color: #888; height: 100px; overflow-y: auto; text-align: left; }
-        .btn-reset { background: #444; margin-top: 15px; width: 100%; font-size: 11px; color: #aaa; }
-    </style>
-</head>
-<body>
-    <div id="login">
-        <h2>PERUDO ONLINE</h2>
-        <input type="text" id="nick" placeholder="Nhập tên...">
-        <button onclick="join()">Vào chơi</button>
-    </div>
-
-    <div id="room" style="display:none">
-        <div class="card">
-            <div id="myDice" class="dice"></div>
-        </div>
-
-        <div class="card">
-            <div id="status">Đang chờ...</div>
-            <h2 id="currentBid">---</h2>
-            <div id="actions" style="display:none">
-                <input type="number" id="bc" value="1" min="1"> con 
-                <input type="number" id="bf" value="2" min="1" max="6">
-                <button onclick="bid()">THẦU</button>
-                <button class="liar-btn" onclick="liar()">LIAR!</button>
-            </div>
-            <button id="startBtn" onclick="start()" style="display:none; width: 100%;">BẮT ĐẦU VÁN MỚI</button>
-            <button onclick="resetRoom()" class="btn-reset">RESET TOÀN BỘ PHÒNG</button>
-        </div>
-
-        <div class="card" id="playerList"></div>
-        <div id="logs" class="card"></div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
-        let myNick = localStorage.getItem('p_name') || "";
-
-        if (myNick) document.getElementById('nick').value = myNick;
-
-        function join() {
-            myNick = document.getElementById('nick').value;
-            if(!myNick) return;
-            localStorage.setItem('p_name', myNick);
-            socket.emit('join', myNick);
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('room').style.display = 'block';
-        }
-
-        function start() { socket.emit('start'); }
-        function resetRoom() { if(confirm("Reset sạch danh sách người chơi?")) socket.emit('resetRoom'); }
-        function bid() { 
-            socket.emit('bid', { count: parseInt(document.getElementById('bc').value), face: parseInt(document.getElementById('bf').value) }); 
-        }
-        function liar() { socket.emit('liar'); }
-
-        socket.on('roomReset', () => {
-            alert("Phòng đã reset!");
-            localStorage.removeItem('p_name');
-            location.reload();
-        });
-
-        socket.on('update', ({players, game, me}) => {
-            const myData = players.find(p => p.name === myNick);
-            if (myData && myData.dice.length > 0) {
-                document.getElementById('myDice').innerText = myData.dice.map(d => diceIcons[d] || d).join(' ');
-            } else {
-                document.getElementById('myDice').innerText = "---";
-            }
-            document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'block' : 'none';
-            document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face === 1 ? 'Ace' : game.bid.face}]` : "---";
-            const isMyTurn = game.active && players[game.turn] && players[game.turn].name === myNick;
-            document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
-            document.getElementById('status').innerText = isMyTurn ? "🔥 ĐẾN LƯỢT BẠN!" : `Đang đợi: ${players[game.turn]?.name || '...'}`;
-            document.getElementById('playerList').innerHTML = players.map((p, i) => `
-                <div class="player ${game.turn === i && game.active ? 'active' : ''}">
-                    <span>${p.name} ${p.name === myNick ? '(Bạn)' : ''}</span>
-                    <span>${p.alive ? '🎲'.repeat(p.count) : 'BỊ LOẠI'}</span>
-                </div>
-            `).join('');
-            document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
-        });
-    </script>
-</body>
-</html> -->
-
-
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Perudo Pro</title>
+    <title>Perudo Account System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <style>
-        :root { --primary: #2196F3; --success: #4CAF50; --danger: #f44336; --bg: #0f172a; --card: #1e293b; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; }
-        .card { background: var(--card); padding: 20px; border-radius: 16px; margin-bottom: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-        .dice-set { font-size: 40px; color: #fbbf24; letter-spacing: 4px; margin: 10px 0; min-height: 48px; }
-        .bid-val { font-size: 32px; font-weight: bold; color: var(--primary); margin: 10px 0; }
-        
-        .player-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #334155; }
-        .player-row.active-turn { background: #1e3a8a; border-radius: 10px; border-bottom: none; }
-        .order-btns button { padding: 4px 8px; font-size: 10px; background: #334155; margin-left: 2px; }
-        
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        input { background: #0f172a; border: 1px solid #334155; color: white; padding: 12px; border-radius: 8px; font-size: 18px; width: 80%; }
-        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.95); }
-        .btn-main { background: var(--primary); color: white; width: 100%; }
-        .btn-liar { background: var(--danger); color: white; grid-column: span 2; }
-        .btn-next { background: var(--success); color: white; width: 100%; font-size: 18px; }
-        
+        :root { --p: #3b82f6; --s: #10b981; --d: #ef4444; --bg: #0f172a; --c: #1e293b; }
+        body { font-family: system-ui; background: var(--bg); color: white; text-align: center; margin: 0; padding: 10px; }
+        .card { background: var(--c); padding: 15px; border-radius: 12px; margin-bottom: 10px; }
+        .dice { font-size: 40px; color: #fbbf24; letter-spacing: 5px; min-height: 48px; }
+        .player-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #334155; }
+        .active-turn { background: #1e40af; border-radius: 8px; }
+        .offline { opacity: 0.4; }
+        input { background: #0f172a; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; width: 120px; margin: 5px; }
+        button { border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .btn-p { background: var(--p); color: white; }
+        .btn-d { background: var(--d); color: white; }
         #logs { font-size: 12px; color: #94a3b8; height: 100px; overflow-y: auto; text-align: left; }
-        .dice-small { font-size: 18px; color: #fbbf24; }
     </style>
 </head>
 <body>
-    <div id="login">
-        <div class="card">
-            <h2>🎲 PERUDO PRO</h2>
-            <input type="text" id="nick" placeholder="Nhập tên..." style="width: 80%; margin-bottom: 15px;">
-            <button onclick="join()" class="btn-main">VÀO PHÒNG</button>
-        </div>
+    <div id="login-box" class="card">
+        <h2>🎲 PERUDO LOGIN</h2>
+        <input type="text" id="user" placeholder="Username">
+        <input type="password" id="pass" placeholder="Password">
+        <br><br>
+        <button class="btn-p" onclick="login()">ĐĂNG NHẬP / ĐĂNG KÝ</button>
+        <p style="font-size: 10px; color: #64748b;">(Tài khoản dùng để vào lại nếu rớt mạng)</p>
     </div>
 
-    <div id="room" style="display:none">
+    <div id="game-box" style="display:none">
         <div class="card">
-            <small style="color: #94a3b8;">Xúc xắc của bạn</small>
-            <div id="myDice" class="dice-set"></div>
+            <small>Xúc xắc của bạn</small>
+            <div id="myDice" class="dice"></div>
         </div>
 
         <div class="card">
-            <div id="status" style="font-weight: bold; margin-bottom: 5px;"></div>
-            <div id="currentBid" class="bid-val">---</div>
-            
-            <div id="bid-area" style="display:none">
-                <div class="controls">
-                    <div><small>Số lượng</small><br><input type="number" id="bc" value="1"></div>
-                    <div><small>Mặt</small><br><input type="number" id="bf" value="2" min="1" max="6"></div>
-                    <button onclick="bid()" class="btn-main" style="grid-column: span 2; background: var(--success);">ĐẶT THẦU</button>
-                    <button onclick="liar()" class="btn-liar">HÔ LIAR!</button>
-                </div>
+            <div id="status"></div>
+            <h2 id="currentBid" style="color:var(--p)">---</h2>
+            <div id="actions" style="display:none">
+                <input type="number" id="bc" value="1" style="width:50px"> con 
+                <input type="number" id="bf" value="2" min="1" max="6" style="width:50px">
+                <button class="btn-p" onclick="bid()">THẦU</button>
+                <button class="btn-d" onclick="liar()">LIAR!</button>
             </div>
-
-            <div id="result-area" style="display:none">
-                <button onclick="nextRound()" class="btn-next">SẴN SÀNG VÒNG TIẾP ⮕</button>
+            <div id="result-box" style="display:none">
+                <button class="btn-p" onclick="nextRound()" style="background:var(--s); width:100%">VÒNG TIẾP THEO ⮕</button>
             </div>
-
-            <button id="startBtn" onclick="start()" class="btn-main" style="display:none; margin-top:10px;">BẮT ĐẦU GAME</button>
+            <button id="startBtn" onclick="start()" class="btn-p" style="display:none; width:100%">BẮT ĐẦU GAME</button>
         </div>
 
-        <div class="card" style="padding: 10px;">
-            <div id="playerList"></div>
-        </div>
-
+        <div class="card" id="playerList" style="padding:0"></div>
         <div class="card" id="logs"></div>
-        <button onclick="resetRoom()" style="background:none; color:#475569; font-size:10px; width:100%">RESET SERVER</button>
+        <button onclick="resetRoom()" style="background:none; color:#475569; font-size:10px">Reset Server</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
         const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
-        let myNick = localStorage.getItem('p_name') || "";
+        let myName = "";
 
-        function join() {
-            myNick = document.getElementById('nick').value;
-            if(!myNick) return;
-            localStorage.setItem('p_name', myNick);
-            socket.emit('join', myNick);
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('room').style.display = 'block';
+        // Tự động điền nếu đã từng login
+        if (localStorage.getItem('p_user')) {
+            document.getElementById('user').value = localStorage.getItem('p_user');
+            document.getElementById('pass').value = localStorage.getItem('p_pass');
         }
+
+        function login() {
+            const username = document.getElementById('user').value;
+            const password = document.getElementById('pass').value;
+            if (!username || !password) return alert("Nhập đủ user/pass");
+            
+            localStorage.setItem('p_user', username);
+            localStorage.setItem('p_pass', password);
+            socket.emit('login', { username, password });
+        }
+
+        socket.on('loginSuccess', (name) => {
+            myName = name;
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('game-box').style.display = 'block';
+        });
+
+        socket.on('err', (m) => alert(m));
+        socket.on('reloadAll', () => { localStorage.clear(); location.reload(); });
 
         function start() { socket.emit('start'); }
         function bid() { socket.emit('bid', { count: parseInt(bc.value), face: parseInt(bf.value) }); }
         function liar() { socket.emit('liar'); }
         function nextRound() { socket.emit('nextRound'); }
-        function resetRoom() { if(confirm("Xóa hết người chơi?")) socket.emit('resetRoom'); }
-        function movePlayer(index, direction) { socket.emit('movePlayer', {index, direction}); }
+        function resetRoom() { if(confirm("Xóa sạch data?")) socket.emit('resetRoom'); }
 
         socket.on('update', ({players, game, me}) => {
-            const meObj = players.find(p => p.name === myNick);
+            const meObj = players.find(p => p.name === myName);
             if (meObj) document.getElementById('myDice').innerText = meObj.dice.map(d => diceIcons[d] || d).join(' ');
 
             document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face === 1 ? 'Ace' : game.bid.face}]` : "CHƯA CÓ THẦU";
             
-            const isMyTurn = game.active && !game.showingResults && players[game.turn]?.name === myNick;
-            document.getElementById('bid-area').style.display = isMyTurn ? 'block' : 'none';
-            document.getElementById('result-area').style.display = game.showingResults ? 'block' : 'none';
+            const isMyTurn = game.active && !game.showingResults && players[game.turn]?.name === myName;
+            document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
+            document.getElementById('result-box').style.display = (game.showingResults && game.active) ? 'block' : 'none';
             document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'block' : 'none';
 
-            let statusColor = isMyTurn ? "#4CAF50" : "#94a3b8";
-            if (game.showingResults) statusColor = "#fbbf24";
-            document.getElementById('status').style.color = statusColor;
-            document.getElementById('status').innerText = game.showingResults ? "KẾT QUẢ VÒNG" : (isMyTurn ? "🔥 LƯỢT CỦA BẠN" : `Lượt của: ${players[game.turn]?.name || '...'}`);
+            document.getElementById('status').innerText = game.showingResults ? "KẾT QUẢ VÒNG" : (isMyTurn ? "🔥 LƯỢT BẠN" : `Đợi: ${players[game.turn]?.name}`);
 
             document.getElementById('playerList').innerHTML = players.map((p, i) => `
-                <div class="player-row ${game.turn === i && game.active ? 'active-turn' : ''}">
-                    <div style="display:flex; align-items:center">
-                        ${!game.active ? `
-                            <div class="order-btns">
-                                <button onclick="movePlayer(${i}, -1)">▲</button>
-                                <button onclick="movePlayer(${i}, 1)">▼</button>
-                            </div>
-                        ` : ''}
-                        <span style="margin-left:10px; color:${p.alive?'#fff':'#64748b'}">${p.name} ${p.name===myNick?'(Bạn)':''}</span>
-                    </div>
-                    <div class="dice-small">
-                        ${p.alive ? (game.showingResults || !game.active ? p.dice.map(d => diceIcons[d]).join(' ') : '🎲'.repeat(p.count)) : '❌ LOẠI'}
-                    </div>
+                <div class="player-row ${game.turn === i && game.active ? 'active-turn' : ''} ${!p.online ? 'offline' : ''}">
+                    <span>${!p.online ? '⚪' : '🟢'} ${p.name} ${p.name === myName ? '(Bạn)' : ''}</span>
+                    <span style="color:#fbbf24">${p.alive ? (game.showingResults || !game.active ? p.dice.map(d => diceIcons[d]).join(' ') : '🎲'.repeat(p.count)) : '❌'}</span>
                 </div>
             `).join('');
 
             document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
         });
-
-        if (myNick) { document.getElementById('nick').value = myNick; join(); }
     </script>
 </body>
 </html>
