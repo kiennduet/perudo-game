@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Perudo Online - Ace Rule</title>
+    <title>Perudo Online</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <style>
         body { font-family: sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 10px; }
@@ -13,38 +13,32 @@
         button { padding: 10px 15px; border-radius: 5px; border: none; background: #1976d2; color: white; font-weight: bold; cursor: pointer; }
         .liar-btn { background: #d32f2f; }
         #logs { font-size: 12px; color: #888; height: 100px; overflow-y: auto; text-align: left; }
-        .rule-tip { font-size: 11px; color: #aaa; margin-top: 10px; line-height: 1.4; border-top: 1px solid #333; padding-top: 5px; }
+        .btn-reset { background: #444; margin-top: 15px; width: 100%; font-size: 11px; color: #aaa; }
     </style>
 </head>
 <body>
     <div id="login">
         <h2>PERUDO ONLINE</h2>
-        <input type="text" id="nick" placeholder="Nhập tên..." style="width:150px">
+        <input type="text" id="nick" placeholder="Nhập tên...">
         <button onclick="join()">Vào chơi</button>
     </div>
 
     <div id="room" style="display:none">
         <div class="card">
-            <div style="font-size: 12px; color: #888;">Xúc xắc của bạn:</div>
             <div id="myDice" class="dice"></div>
         </div>
 
         <div class="card">
-            <div id="status" style="font-weight: bold; color: #4CAF50;">Đang chờ...</div>
-            <h2 id="currentBid" style="color: #2196F3; margin: 10px 0;">---</h2>
-            
+            <div id="status">Đang chờ...</div>
+            <h2 id="currentBid">---</h2>
             <div id="actions" style="display:none">
                 <input type="number" id="bc" value="1" min="1"> con 
                 <input type="number" id="bf" value="2" min="1" max="6">
                 <button onclick="bid()">THẦU</button>
                 <button class="liar-btn" onclick="liar()">LIAR!</button>
-                
-                <div class="rule-tip">
-                    <b>Luật Ace:</b> Thường ⮕ Ace: Số lượng ÷ 2 (lên). <br>
-                    Ace ⮕ Thường: Số lượng x 2 + 1.
-                </div>
             </div>
             <button id="startBtn" onclick="start()" style="display:none; width: 100%;">BẮT ĐẦU VÁN MỚI</button>
+            <button onclick="resetRoom()" class="btn-reset">RESET TOÀN BỘ PHÒNG</button>
         </div>
 
         <div class="card" id="playerList"></div>
@@ -69,10 +63,17 @@
         }
 
         function start() { socket.emit('start'); }
+        function resetRoom() { if(confirm("Reset sạch danh sách người chơi?")) socket.emit('resetRoom'); }
         function bid() { 
             socket.emit('bid', { count: parseInt(document.getElementById('bc').value), face: parseInt(document.getElementById('bf').value) }); 
         }
         function liar() { socket.emit('liar'); }
+
+        socket.on('roomReset', () => {
+            alert("Phòng đã reset!");
+            localStorage.removeItem('p_name');
+            location.reload();
+        });
 
         socket.on('update', ({players, game, me}) => {
             const myData = players.find(p => p.name === myNick);
@@ -81,25 +82,116 @@
             } else {
                 document.getElementById('myDice').innerText = "---";
             }
-
             document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'block' : 'none';
-            
-            // Hiển thị Ace thay vì số 1 cho chuyên nghiệp
-            let displayFace = game.bid.face === 1 ? "Ace" : game.bid.face;
-            document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${displayFace}]` : "---";
-
+            document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face === 1 ? 'Ace' : game.bid.face}]` : "---";
             const isMyTurn = game.active && players[game.turn] && players[game.turn].name === myNick;
             document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
             document.getElementById('status').innerText = isMyTurn ? "🔥 ĐẾN LƯỢT BẠN!" : `Đang đợi: ${players[game.turn]?.name || '...'}`;
-            document.getElementById('status').style.color = isMyTurn ? "#4CAF50" : "#ff9800";
-
             document.getElementById('playerList').innerHTML = players.map((p, i) => `
                 <div class="player ${game.turn === i && game.active ? 'active' : ''}">
                     <span>${p.name} ${p.name === myNick ? '(Bạn)' : ''}</span>
                     <span>${p.alive ? '🎲'.repeat(p.count) : 'BỊ LOẠI'}</span>
                 </div>
             `).join('');
+            document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
+        });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html>
+<head>
+    <title>Perudo Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 10px; }
+        .card { background: #1e1e1e; padding: 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333; }
+        .dice { font-size: 40px; color: #ffca28; letter-spacing: 5px; margin: 10px 0; min-height: 45px; }
+        .player { padding: 8px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; font-size: 14px; }
+        .active { background: #1b5e20; border-radius: 5px; font-weight: bold; }
+        input { width: 50px; padding: 10px; border-radius: 5px; border: none; background: #333; color: white; border: 1px solid #555; font-size: 16px; }
+        button { padding: 10px 15px; border-radius: 5px; border: none; background: #1976d2; color: white; font-weight: bold; cursor: pointer; }
+        .liar-btn { background: #d32f2f; }
+        #logs { font-size: 12px; color: #888; height: 100px; overflow-y: auto; text-align: left; }
+        .btn-reset { background: #444; margin-top: 15px; width: 100%; font-size: 11px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div id="login">
+        <h2>PERUDO ONLINE</h2>
+        <input type="text" id="nick" placeholder="Nhập tên...">
+        <button onclick="join()">Vào chơi</button>
+    </div>
 
+    <div id="room" style="display:none">
+        <div class="card">
+            <div id="myDice" class="dice"></div>
+        </div>
+
+        <div class="card">
+            <div id="status">Đang chờ...</div>
+            <h2 id="currentBid">---</h2>
+            <div id="actions" style="display:none">
+                <input type="number" id="bc" value="1" min="1"> con 
+                <input type="number" id="bf" value="2" min="1" max="6">
+                <button onclick="bid()">THẦU</button>
+                <button class="liar-btn" onclick="liar()">LIAR!</button>
+            </div>
+            <button id="startBtn" onclick="start()" style="display:none; width: 100%;">BẮT ĐẦU VÁN MỚI</button>
+            <button onclick="resetRoom()" class="btn-reset">RESET TOÀN BỘ PHÒNG</button>
+        </div>
+
+        <div class="card" id="playerList"></div>
+        <div id="logs" class="card"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const diceIcons = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+        let myNick = localStorage.getItem('p_name') || "";
+
+        if (myNick) document.getElementById('nick').value = myNick;
+
+        function join() {
+            myNick = document.getElementById('nick').value;
+            if(!myNick) return;
+            localStorage.setItem('p_name', myNick);
+            socket.emit('join', myNick);
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('room').style.display = 'block';
+        }
+
+        function start() { socket.emit('start'); }
+        function resetRoom() { if(confirm("Reset sạch danh sách người chơi?")) socket.emit('resetRoom'); }
+        function bid() { 
+            socket.emit('bid', { count: parseInt(document.getElementById('bc').value), face: parseInt(document.getElementById('bf').value) }); 
+        }
+        function liar() { socket.emit('liar'); }
+
+        socket.on('roomReset', () => {
+            alert("Phòng đã reset!");
+            localStorage.removeItem('p_name');
+            location.reload();
+        });
+
+        socket.on('update', ({players, game, me}) => {
+            const myData = players.find(p => p.name === myNick);
+            if (myData && myData.dice.length > 0) {
+                document.getElementById('myDice').innerText = myData.dice.map(d => diceIcons[d] || d).join(' ');
+            } else {
+                document.getElementById('myDice').innerText = "---";
+            }
+            document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'block' : 'none';
+            document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con [${game.bid.face === 1 ? 'Ace' : game.bid.face}]` : "---";
+            const isMyTurn = game.active && players[game.turn] && players[game.turn].name === myNick;
+            document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
+            document.getElementById('status').innerText = isMyTurn ? "🔥 ĐẾN LƯỢT BẠN!" : `Đang đợi: ${players[game.turn]?.name || '...'}`;
+            document.getElementById('playerList').innerHTML = players.map((p, i) => `
+                <div class="player ${game.turn === i && game.active ? 'active' : ''}">
+                    <span>${p.name} ${p.name === myNick ? '(Bạn)' : ''}</span>
+                    <span>${p.alive ? '🎲'.repeat(p.count) : 'BỊ LOẠI'}</span>
+                </div>
+            `).join('');
             document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
         });
     </script>

@@ -19,6 +19,18 @@ io.on('connection', (socket) => {
         sync();
     });
 
+    socket.on('resetRoom', () => {
+        players = []; // Xóa sạch mảng người chơi
+        game = { 
+            bid: { count: 0, face: 0, pIdx: -1 }, 
+            turn: 0, 
+            active: false, 
+            logs: ["--- PHÒNG ĐÃ ĐƯỢC LÀM MỚI ---"] 
+        };
+        io.emit('roomReset'); // Thông báo cho tất cả mọi người
+        console.log("Phòng đã được Reset");
+    });
+
     socket.on('start', () => {
         if (players.length < 2) return;
         game.active = true;
