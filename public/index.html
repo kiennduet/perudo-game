@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Perudo Lite</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; background: #1a1a1a; color: white; text-align: center; }
+    .card { background: #333; margin: 10px; padding: 15px; border-radius: 8px; }
+    .dice { font-size: 30px; color: #ffd700; letter-spacing: 5px; }
+    input { width: 60px; padding: 10px; border-radius: 5px; border: none; }
+    button { padding: 10px 20px; border-radius: 5px; border: none; background: #4CAF50; color: white; cursor: pointer; }
+    .liar-btn { background: #f44336; }
+    #logs { font-size: 12px; color: #aaa; height: 80px; overflow-y: auto; border-top: 1px solid #444; }
+  </style>
+</head>
+<body>
+  <div id="login">
+    <h2>PERUDO</h2>
+    <input type="text" id="nick" placeholder="Tên...">
+    <button onclick="join()">Chơi</button>
+  </div>
+
+  <div id="room" style="display:none">
+    <div class="card">
+      <div>Xúc xắc của bạn:</div>
+      <div id="myDice" class="dice"></div>
+    </div>
+    
+    <div class="card">
+      <div id="status">Đang chờ...</div>
+      <h3 id="currentBid">Chưa có ai thầu</h3>
+      <div id="actions" style="display:none">
+        <input type="number" id="bc" value="1"> con 
+        <input type="number" id="bf" value="2" min="2" max="6">
+        <button onclick="bid()">Thầu</button>
+        <button class="liar-btn" onclick="liar()">LIAR!</button>
+      </div>
+      <button id="startBtn" onclick="start()" style="display:none">BẮT ĐẦU GAME</button>
+    </div>
+
+    <div id="playerList"></div>
+    <div id="logs" class="card"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    function join() {
+      socket.emit('join', document.getElementById('nick').value);
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('room').style.display = 'block';
+    }
+    function start() { socket.emit('start'); }
+    function bid() {
+      socket.emit('bid', { count: parseInt(bc.value), face: parseInt(bf.value) });
+    }
+    function liar() { socket.emit('liar'); }
+
+    socket.on('update', ({players, game, me}) => {
+      const myData = players.find(p => p.id === me);
+      if (myData) document.getElementById('myDice').innerText = myData.dice.join(' ') || 'ĐÃ CHẾT';
+      
+      document.getElementById('startBtn').style.display = (!game.active && players.length >= 2) ? 'inline-block' : 'none';
+      document.getElementById('currentBid').innerText = game.bid.count > 0 ? `${game.bid.count} con ${game.bid.face}` : "Đang chờ thầu...";
+      
+      const isMyTurn = game.active && players[game.turn] && players[game.turn].id === me;
+      document.getElementById('actions').style.display = isMyTurn ? 'block' : 'none';
+      document.getElementById('status').innerText = isMyTurn ? "ĐẾN LƯỢT BẠN!" : `Lượt của: ${players[game.turn]?.name || '...'}`;
+
+      document.getElementById('logs').innerHTML = game.logs.slice().reverse().map(l => `<div>${l}</div>`).join('');
+      
+      document.getElementById('playerList').innerHTML = players.map(p => 
+        `<div style="color:${p.alive?'#fff':'#666'}">${p.name} (${p.count} 🎲)</div>`
+      ).join('');
+    });
+  </script>
+</body>
+</html>
