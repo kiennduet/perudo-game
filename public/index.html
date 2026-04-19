@@ -447,7 +447,7 @@ function startCountdown(endTs){
         const rem=endTs-Date.now();
         if(rem<=0){clearInterval(countdownInterval);document.getElementById('countdown-wrap').style.display='none';return;}
         document.getElementById('countdown-bar').style.width=Math.min(100,(rem/total)*100)+'%';
-        document.getElementById('countdown-label').textContent=`Continuing in ${Math.ceil(rem/1000)}s… (all Ready to skip)`;
+        document.getElementById('countdown-label').textContent=`Continuing in ${Math.ceil(rem/1000)}s`;
     },100);
 }
 function stopCountdown(){ clearInterval(countdownInterval); document.getElementById('countdown-wrap').style.display='none'; }
