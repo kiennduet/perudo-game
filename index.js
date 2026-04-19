@@ -19,8 +19,8 @@ const MODES = {
         },
         count: (p, f) => p.filter(d => d === f || d === 1).length
     },
-    "PALIFICO": {
-        desc: "Classic Ace rules. One Ace bid per round. PALIFICO: First time any player reaches 1 die — that round, face is locked after opening bid; all players can only raise the count.",
+    "Palifico": {
+        desc: "Classic Ace rules. One Ace bid per round. Palifico: First time any player reaches 1 die — that round, face is locked after opening bid; all players can only raise the count.",
         validate: (n, o, aceUsed) => {
             // Called only when palificoActive is FALSE (palifico validation is handled separately in bid handler)
             if (o.count === 0) return n.face !== 1;
