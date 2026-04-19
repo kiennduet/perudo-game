@@ -578,7 +578,7 @@ socket.on('update',({players,game,allModes,currentModeInfo,hostName})=>{
     const statusEl = document.getElementById('status');
     if(isMyTurn){
         const palLabel = palificoActive ? (openingBidDone ? ` • ${diceIcons[lockedFace]} locked` : ' • set face') : '';
-        statusEl.innerHTML=`<span style="color:var(--s);">🔥 YOUR TURN 🔥${escHtml(palLabel)}</span>`;
+        statusEl.innerHTML=`<span style="color:var(--s);">🔥 YOUR TURN 🔥 </span>`;
         // Auto-suggest: during palifico after opening, only count auto-increase
         if(palificoActive && openingBidDone){
             currentBidFace  = lockedFace;

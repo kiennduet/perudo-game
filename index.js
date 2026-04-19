@@ -341,8 +341,7 @@ let game = {
     autoAdvanceAt: null,
     roundIdx: 0,
     // ── Palifico state ──────────────────────────────────
-    palificoTriggered: false,  // true once palifico has ever fired this game
-    palificoActive: false      // true only during the one palifico round
+    palificoActive: false      // true only during the active palifico round
 };
 
 const AUTO_ADVANCE_DELAY = 10000;
@@ -359,7 +358,7 @@ io.on('connection', (socket) => {
         else {
             if (game.active) return socket.emit('err', 'Match in progress!');
             const assignedColor = color || DEFAULT_COLORS[players.length % DEFAULT_COLORS.length];
-            players.push({ id: socket.id, name, dice: [], alive: true, online: true, ready: false, color: assignedColor });
+            players.push({ id: socket.id, name, dice: [], alive: true, online: true, ready: false, color: assignedColor, palificoUsed: false });
         }
         socket.emit('loginSuccess', name);
         sync();
@@ -507,7 +506,7 @@ io.on('connection', (socket) => {
             active: false, bid: { count: 0, face: 0, pIdx: -1 }, turn: 0, logs: [],
             showingResults: false, aceUsed: false, pendingLoserIdx: -1, pendingWinnerIdx: -1,
             winner: null, autoAdvanceAt: null, roundIdx: 0,
-            palificoTriggered: false, palificoActive: false
+            palificoActive: false
         });
         io.emit('reloadAll');
     });
@@ -518,9 +517,9 @@ io.on('connection', (socket) => {
         game.active = true; game.showingResults = false; game.turn = 0;
         game.bid = { count: 0, face: 0, pIdx: -1 };
         game.aceUsed = false; game.winner = null; game.autoAdvanceAt = null;
-        game.palificoTriggered = false; game.palificoActive = false; // fresh each game
+        game.palificoActive = false;
         game.logs = [`--- MODE: ${game.mode.toUpperCase()} ---`];
-        players.forEach(pl => { pl.alive = pl.online; pl.dice = pl.alive ? [0,0,0,0,0] : []; pl.ready = false; });
+        players.forEach(pl => { pl.alive = pl.online; pl.dice = pl.alive ? [0,0,0,0,0] : []; pl.ready = false; pl.palificoUsed = false; });
         newRound();
     }
 
@@ -540,12 +539,12 @@ io.on('connection', (socket) => {
                 game.logs.push(`💀 ${loser.name.toUpperCase()} ELIMINATED!`);
             } else if (
                 loser.dice.length === 1 &&
-                !game.palificoTriggered &&
+                !loser.palificoUsed &&
                 game.mode === 'PowerAce'
             ) {
-                // ── Palifico trigger ─────────────────────────
+                // ── Palifico trigger (per-player, once each) ─
                 nextRoundIsPalifico = true;
-                game.palificoTriggered = true;
+                loser.palificoUsed = true;
                 game.logs.push(`🎯 PALIFICO! ${loser.name.toUpperCase()} has 1 die — face locks this round!`);
             }
 
@@ -602,7 +601,7 @@ io.on('connection', (socket) => {
             if (!p.id) return;
             const data = players.map((pl, idx) => ({
                 name: pl.name, alive: pl.alive, count: pl.dice.length,
-                online: pl.online, ready: pl.ready, color: pl.color,
+                online: pl.online, ready: pl.ready, color: pl.color, palificoUsed: pl.palificoUsed,
                 isRoundWinner: (game.showingResults && idx === game.pendingWinnerIdx),
                 isRoundLoser:  (game.showingResults && idx === game.pendingLoserIdx),
                 dice: (showAll || game.showingResults || pl.id === p.id || !game.active) ? pl.dice : []
