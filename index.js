@@ -324,7 +324,7 @@ io.on('connection', (socket) => {
                 online: pl.online, ready: pl.ready, color: pl.color, palificoUsed: pl.palificoUsed,
                 isRoundWinner: (game.showingResults && idx === game.pendingWinnerIdx),
                 isRoundLoser:  (game.showingResults && idx === game.pendingLoserIdx),
-                dice: (showAll || game.showingResults || pl.id === p.id || !game.active) ? pl.dice : []
+                dice: (showAll || game.showingResults || pl.id === p.id || !game.active || !p.alive) ? pl.dice : []
             }));
             io.to(p.id).emit('update', { players: data, game, allModes, currentModeInfo: MODES[game.mode], hostName });
         });

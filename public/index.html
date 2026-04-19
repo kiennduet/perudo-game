@@ -199,6 +199,13 @@
                 <button class="btn-main btn-s" onclick="confirmBid()" style="margin-bottom:12px;font-size:18px;">PLACE BID</button>
                 <button class="btn-main btn-d" onclick="callLiar()">CALL LIAR!</button>
             </div>
+
+            <!-- ── Spectator panel (shown when eliminated during active game) ── -->
+            <div id="spectator-ui" style="display:none;text-align:center;padding:12px 0;">
+                <div style="font-size:36px;margin-bottom:6px;">👁️</div>
+                <div style="font-size:13px;font-weight:800;color:var(--t-mute);letter-spacing:2px;text-transform:uppercase;">Spectating</div>
+                <div style="font-size:11px;color:var(--t-mute);margin-top:5px;opacity:0.65;">You can see all dice</div>
+            </div>
         </div>
 
         <div id="playerList" style="margin-top:5px;"></div>
@@ -483,6 +490,7 @@ socket.on('update',({players,game,allModes,currentModeInfo,hostName})=>{
     const isShowdown      = game.active && game.showingResults;
     const isPlaying       = game.active && !game.showingResults;
     const isMyTurn        = isPlaying && players[game.turn]?.name===myName;
+    const isSpectator     = game.active && !!meObj && !meObj.alive;
     const amHost          = myName===hostName;
     const palificoActive  = !!game.palificoActive;
     const openingBidDone  = palificoActive && game.bid.count > 0;
@@ -519,15 +527,16 @@ socket.on('update',({players,game,allModes,currentModeInfo,hostName})=>{
         if(myDiceKey!==renderedDiceKey){ renderMyDice(meObj.dice,myColor); renderedDiceKey=myDiceKey; }
     } else if(!game.active){
         renderedDiceKey=''; renderMyDice([],myColor);
-    } else if(!meObj?.alive){
-        document.getElementById('myDice-tray').innerHTML=`<span style="font-size:20px;color:var(--d);">ELIMINATED</span>`;
-        renderedDiceKey='elim';
+    } else if(isSpectator){
+        document.getElementById('myDice-tray').innerHTML=`<span style="font-size:16px;color:var(--t-mute);">👁️ SPECTATING</span>`;
+        renderedDiceKey='spectator';
     }
 
     /* ── Panel visibility ── */
-    document.getElementById('ready-ui').style.display  = (!game.active||isShowdown)?'block':'none';
-    document.getElementById('actions-ui').style.display = isPlaying?'block':'none';
-    document.getElementById('action-card').className    = 'card '+(isMyTurn?'your-turn-active':'');
+    document.getElementById('ready-ui').style.display     = (!game.active||isShowdown)?'block':'none';
+    document.getElementById('actions-ui').style.display   = (isPlaying && !isSpectator)?'block':'none';
+    document.getElementById('spectator-ui').style.display = (isSpectator && isPlaying)?'block':'none';
+    document.getElementById('action-card').className      = 'card '+(isMyTurn?'your-turn-active':'');
 
     /* ── Palifico banner ── */
     const banner = document.getElementById('palifico-banner');
@@ -592,6 +601,8 @@ socket.on('update',({players,game,allModes,currentModeInfo,hostName})=>{
             }
         }
         if(navigator.vibrate) navigator.vibrate(100);
+    } else if(isSpectator && !isShowdown){
+        statusEl.innerHTML=`<span style="color:var(--t-mute);">👁️ SPECTATING</span>`;
     } else {
         const turnPlayer=players[game.turn];
         const turnColor=turnPlayer?.color||'var(--t-mute)';
@@ -626,7 +637,7 @@ socket.on('update',({players,game,allModes,currentModeInfo,hostName})=>{
         if(!game.active){
             diceDisplay='🎲×5';
         } else if(p.alive){
-            if(isShowdown){
+            if(isShowdown || isSpectator){
                 diceDisplay=`<span style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;">${revealDiceHtml(p.dice)}</span>`;
             } else {
                 diceDisplay='<span style="display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end;">'
