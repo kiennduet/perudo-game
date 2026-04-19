@@ -260,7 +260,7 @@ io.on('connection', (socket) => {
             } else if (
                 loser.dice.length === 1 &&
                 !loser.palificoUsed &&
-                game.mode === 'PowerAce'
+                game.mode === 'Palifico'
             ) {
                 // ── Palifico trigger (per-player, once each) ─
                 nextRoundIsPalifico = true;
