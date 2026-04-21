@@ -5,6 +5,7 @@ const io = require('socket.io')(http);
 const path = require('path');
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/audio', express.static(path.join(__dirname, 'audio')));
 
 const MODES = {
     "Classic": {
@@ -218,6 +219,18 @@ io.on('connection', (socket) => {
     });
 
     // ── MISC ─────────────────────────────────────────────────
+    // ── SOUND BROADCAST ──────────────────────────────────
+    let lastSoundAt = 0;
+    socket.on('playSound', (file) => {
+        const p = players.find(x => x.id === socket.id);
+        if (!p) return;
+        const now = Date.now();
+        if (now - lastSoundAt < 5000) return;
+        lastSoundAt = now;
+        const safe = String(file).replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        io.emit('playSound', { file: safe, sender: p.name });
+    });
+
     socket.on('changeMode', (m) => { if (!game.active && MODES[m]) { game.mode = m; sync(); } });
     socket.on('resetRoom', () => {
         clearTimeout(autoAdvanceTimer); clearTimeout(winnerClearTimer);
