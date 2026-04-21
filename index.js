@@ -225,7 +225,7 @@ io.on('connection', (socket) => {
         const p = players.find(x => x.id === socket.id);
         if (!p) return;
         const now = Date.now();
-        if (now - lastSoundAt < 5000) return;
+        if (now - lastSoundAt < 3000) return;
         lastSoundAt = now;
         const safe = String(file).replace(/[^a-zA-Z0-9_\-\.]/g, '');
         io.emit('playSound', { file: safe, sender: p.name });
