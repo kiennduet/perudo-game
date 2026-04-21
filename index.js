@@ -189,10 +189,7 @@ io.on('connection', (socket) => {
         const bidder = players[game.bid.pIdx];
         const allDice = players.reduce((a, b) => a.concat(b.dice), []);
 
-        // During palifico: aces are NOT wild (face must match exactly)
-        const countFn = game.palificoActive
-            ? (pool, face) => pool.filter(d => d === face).length
-            : MODES[game.mode].count;
+        const countFn = MODES[game.mode].count;
 
         const total = countFn(allDice, game.bid.face);
         const isLiar = total < game.bid.count;
@@ -206,7 +203,7 @@ io.on('connection', (socket) => {
         players.forEach(pl => pl.ready = false);
 
         game.logs.push(`--- CHALLENGE ---`);
-        game.logs.push(`Bid: ${game.bid.count}×[${game.bid.face === 1 ? 'Ace' : game.bid.face}] | Found: ${total}${game.palificoActive ? ' (Palifico — no wilds)' : ''}`);
+        game.logs.push(`Bid: ${game.bid.count}×[${game.bid.face === 1 ? 'Ace' : game.bid.face}] | Found: ${total}`);
         game.logs.push(`⭐ ${winner.name.toUpperCase()} WON THE ROUND!`);
 
         autoAdvanceTimer = setTimeout(() => {
