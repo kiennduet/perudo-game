@@ -193,12 +193,12 @@
         #sound-fab:active{ transform:scale(0.93); }
         #sound-fab.on-cooldown{ background:#334155; box-shadow:none; cursor:not-allowed; }
         #sfab-cooldown{ position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); font-size:9px; font-weight:800; color:var(--t2); background:var(--c); border-radius:6px; padding:1px 5px; display:none; white-space:nowrap; }
-        #sound-panel{ position:fixed; bottom:78px; right:70px; z-index:149; background:var(--c2); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:0 16px 48px rgba(0,0,0,0.6); width:min(300px,calc(100vw - 24px)); display:none; flex-direction:column; gap:8px; }
+        #sound-panel{ position:fixed; bottom:78px; right:12px; z-index:149; background:var(--c2); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:0 16px 48px rgba(0,0,0,0.6); width:min(290px,calc(100vw - 24px)); display:none; flex-direction:column; gap:8px; }
         #sound-panel.open{ display:flex; animation:fadeUp 0.18s ease; }
         #sound-panel-title{ font-size:10px; color:var(--t3); text-transform:uppercase; letter-spacing:1.5px; font-weight:700; }
         .sound-grid{ display:grid; grid-template-columns:1fr 1fr; gap:5px; }
-        .sound-btn{ background:rgba(124,58,237,0.08); color:var(--t); border:1px solid rgba(124,58,237,0.2); border-radius:11px; padding:9px 8px; font-size:11px; font-weight:600; cursor:pointer; transition:0.12s; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .sound-btn:hover{ background:rgba(124,58,237,0.25); border-color:rgba(124,58,237,0.5); }
+        .sound-btn{ background:rgba(255,255,255,0.04); color:var(--t); border:1px solid var(--border); border-radius:11px; padding:9px 6px; font-size:12px; font-weight:600; cursor:pointer; transition:0.12s; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sound-btn:hover{ background:#7c3aed; border-color:#7c3aed; }
         .sound-btn:active{ transform:scale(0.95); }
         .sound-btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; }
         #sound-cooldown-bar-wrap{ display:none; }
@@ -621,6 +621,8 @@ document.addEventListener('click', e=>{
 function sendSound(file){
     if(Date.now() < soundCooldownUntil) return;
     socket.emit('playSound', file);
+    soundPanelOpen = false;
+    document.getElementById('sound-panel').classList.remove('open');
 }
 
 function startSoundCooldown(){
